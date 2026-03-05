@@ -89,13 +89,17 @@ export interface Question {
   description: string     // 補足説明
   options: QuestionOption[]
   required: boolean       // 必須回答かどうか
+  multiSelect?: boolean   // 複数選択可能かどうか
 }
 
 /**
  * ユーザーの回答
- * key: 質問ID, value: 選択肢ID
+ * Q1は複数選択可能なのでstring[]
+ * その他は単一選択なのでstring
  */
-export type DiagnoseAnswers = Partial<Record<QuestionId, string>>
+export type DiagnoseAnswers = {
+  Q1?: string[]           // 複数選択可能
+} & Partial<Omit<Record<QuestionId, string>, 'Q1'>>
 
 /**
  * 検索クエリ構築結果

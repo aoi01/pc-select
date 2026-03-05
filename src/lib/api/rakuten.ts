@@ -8,13 +8,104 @@ import { generateFriendlySpec } from '../diagnose'
 
 /**
  * 楽天API設定
- * 環境変数から読み込む（セキュリティのためハードコードしない）
+ * 環境変数から読み込む
+ * Next.jsクライアントサイドでは NEXT_PUBLIC_ プレフィックスが必要
  */
 const RAKUTEN_CONFIG = {
   baseUrl: 'https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20220601',
-  applicationId: process.env.RAKUTEN_APPLICATION_ID || '',
-  affiliateId: process.env.RAKUTEN_AFFILIATE_ID || '',
+  // 新しい認証方式: Bearer Token
+  accessToken: process.env.NEXT_PUBLIC_RAKUTEN_ACCESS_KEY || '',
+  // 旧認証方式（フォールバック）
+  applicationId: process.env.NEXT_PUBLIC_RAKUTEN_APPLICATION_ID || '',
+  affiliateId: process.env.NEXT_PUBLIC_RAKUTEN_AFFILIATE_ID || '',
 }
+
+/**
+ * デモ用モックデータ
+ * APIキーがない場合に使用
+ */
+const MOCK_PRODUCTS: NormalizedProduct[] = [
+  {
+    provider: 'rakuten',
+    externalId: 'demo-001',
+    name: '【中古】Lenovo ThinkPad X1 Carbon Gen9 Core i5 16GB SSD512GB 14インチ',
+    price: 69800,
+    imageUrl: 'https://thumbnail.image.rakuten.co.jp/@0_mall/dospara/cabinet/lenovo/20xx0001.jpg',
+    affiliateUrl: 'https://item.rakuten.co.jp/dospara/123456/',
+    shopName: 'ドスパラ楽天市場店',
+    shopCode: 'dospara',
+    specRank: 'B',
+    friendlySpec: '中スペック - 日常使いから開発まで余裕',
+    isAvailable: true,
+    reviewScore: 4.5,
+    reviewCount: 128,
+    lastSyncedAt: Date.now(),
+  },
+  {
+    provider: 'rakuten',
+    externalId: 'demo-002',
+    name: 'HP 15.6インチ ノートパソコン Ryzen 5 8GB SSD256GB Windows11',
+    price: 54800,
+    imageUrl: 'https://thumbnail.image.rakuten.co.jp/@0_mall/hp/cabinet/15-xxx.jpg',
+    affiliateUrl: 'https://item.rakuten.co.jp/hp/234567/',
+    shopName: 'HP Direct 楽天市場店',
+    shopCode: 'hpdirect',
+    specRank: 'C',
+    friendlySpec: 'エントリー - 文書作成・Web閲覧に最適',
+    isAvailable: true,
+    reviewScore: 4.2,
+    reviewCount: 89,
+    lastSyncedAt: Date.now(),
+  },
+  {
+    provider: 'rakuten',
+    externalId: 'demo-003',
+    name: '【新品】ASUS ゲーミングノート TUF Gaming F15 RTX4050 16GB 512GB',
+    price: 159800,
+    imageUrl: 'https://thumbnail.image.rakuten.co.jp/@0_mall/asus/cabinet/tuf-f15.jpg',
+    affiliateUrl: 'https://item.rakuten.co.jp/asus/345678/',
+    shopName: 'ASUS 楽天市場店',
+    shopCode: 'asus',
+    specRank: 'A',
+    friendlySpec: '高スペック - 重い作業もサクサク快適',
+    isAvailable: true,
+    reviewScore: 4.7,
+    reviewCount: 256,
+    lastSyncedAt: Date.now(),
+  },
+  {
+    provider: 'rakuten',
+    externalId: 'demo-004',
+    name: 'Dell Inspiron 14 Core i5 16GB SSD512GB Office付き 新品',
+    price: 89800,
+    imageUrl: 'https://thumbnail.image.rakuten.co.jp/@0_mall/dell/cabinet/inspiron14.jpg',
+    affiliateUrl: 'https://item.rakuten.co.jp/dell/456789/',
+    shopName: 'Dell 楽天市場店',
+    shopCode: 'dell',
+    specRank: 'B',
+    friendlySpec: '中スペック - 日常使いから開発まで余裕',
+    isAvailable: true,
+    reviewScore: 4.3,
+    reviewCount: 167,
+    lastSyncedAt: Date.now(),
+  },
+  {
+    provider: 'rakuten',
+    externalId: 'demo-005',
+    name: '【中古良品】MacBook Air M1 8GB SSD256GB 13.3インチ',
+    price: 78000,
+    imageUrl: 'https://thumbnail.image.rakuten.co.jp/@0_mall/apple/cabinet/macbook-air-m1.jpg',
+    affiliateUrl: 'https://item.rakuten.co.jp/apple/567890/',
+    shopName: 'Apple認定リセラー楽天店',
+    shopCode: 'apple',
+    specRank: 'B',
+    friendlySpec: '中スペック - 日常使いから開発まで余裕',
+    isAvailable: true,
+    reviewScore: 4.8,
+    reviewCount: 512,
+    lastSyncedAt: Date.now(),
+  },
+]
 
 /**
  * 楽天API検索パラメータ
@@ -55,7 +146,16 @@ export const TRUSTED_SHOPS = {
 } as const
 
 /**
+ * APIキーが設定されているかチェック
+ */
+export function isApiConfigured(): boolean {
+  // 新しい認証方式（accessKey）または旧方式（applicationId）をチェック
+  return !!(RAKUTEN_CONFIG.accessToken || RAKUTEN_CONFIG.applicationId)
+}
+
+/**
  * 楽天商品検索APIを実行
+ * CORS回避のため、自前のAPI Routeを経由する
  *
  * @param params 検索パラメータ
  * @returns 検索結果
@@ -64,43 +164,24 @@ export const TRUSTED_SHOPS = {
 export async function searchRakutenItems(
   params: RakutenSearchParams
 ): Promise<RakutenSearchResponse> {
-  const url = new URL(RAKUTEN_CONFIG.baseUrl)
+  // API Routeを経由してリクエスト（CORS回避）
+  const apiUrl = new URL('/api/rakuten', window.location.origin)
 
-  // 必須パラメータ
-  url.searchParams.set('applicationId', RAKUTEN_CONFIG.applicationId)
-  url.searchParams.set('keyword', params.keyword)
-  url.searchParams.set('formatVersion', '2')  // シンプルなレスポンス形式
-
-  // オプションパラメータ
+  // パラメータを設定
+  apiUrl.searchParams.set('keyword', params.keyword)
   if (params.minPrice !== undefined) {
-    url.searchParams.set('minPrice', params.minPrice.toString())
+    apiUrl.searchParams.set('minPrice', params.minPrice.toString())
   }
   if (params.maxPrice !== undefined) {
-    url.searchParams.set('maxPrice', params.maxPrice.toString())
+    apiUrl.searchParams.set('maxPrice', params.maxPrice.toString())
   }
   if (params.hits !== undefined) {
-    url.searchParams.set('hits', params.hits.toString())
-  }
-  if (params.page !== undefined) {
-    url.searchParams.set('page', params.page.toString())
-  }
-  if (params.sort !== undefined) {
-    url.searchParams.set('sort', params.sort)
-  }
-  if (params.shopCode !== undefined) {
-    url.searchParams.set('shopCode', params.shopCode)
-  }
-  if (params.genreId !== undefined) {
-    url.searchParams.set('genreId', params.genreId.toString())
+    apiUrl.searchParams.set('hits', params.hits.toString())
   }
 
-  // アフィリエイトID（ある場合はアフィリエイトURLを自動生成）
-  if (RAKUTEN_CONFIG.affiliateId) {
-    url.searchParams.set('affiliateId', RAKUTEN_CONFIG.affiliateId)
-  }
+  console.log('[楽天API] リクエスト:', apiUrl.toString())
 
-  // APIリクエスト実行
-  const response = await fetch(url.toString(), {
+  const response = await fetch(apiUrl.toString(), {
     method: 'GET',
     headers: {
       'Content-Type': 'application/json',
@@ -108,14 +189,23 @@ export async function searchRakutenItems(
   })
 
   if (!response.ok) {
-    throw new Error(`楽天API エラー: ${response.status} ${response.statusText}`)
+    // エラー詳細を取得
+    let errorDetail = ''
+    try {
+      const errorData = await response.json()
+      errorDetail = errorData.error || JSON.stringify(errorData)
+      console.error('[楽天API] エラー詳細:', errorData)
+    } catch {
+      errorDetail = await response.text()
+    }
+    throw new Error(`楽天API エラー: ${response.status} - ${errorDetail}`)
   }
 
   const data = await response.json()
 
   // APIエラーチェック
   if (data.error) {
-    throw new Error(`楽天API エラー: ${data.error_description || data.error}`)
+    throw new Error(`楽天API エラー: ${data.error}`)
   }
 
   return data as RakutenSearchResponse
@@ -218,7 +308,9 @@ export async function searchAndNormalize(
 ): Promise<{
   items: NormalizedProduct[]
   total: number
+  isDemo: boolean
 }> {
+  // API Routeを経由してリクエスト（CORS回避）
   const response = await searchRakutenItems(params)
 
   const items = response.Items?.map(item =>
@@ -228,5 +320,6 @@ export async function searchAndNormalize(
   return {
     items,
     total: response.count,
+    isDemo: false,
   }
 }

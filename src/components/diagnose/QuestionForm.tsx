@@ -1,147 +1,318 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { questions, questionIds } from '@/lib/diagnose'
-import type { DiagnoseAnswers, QuestionId } from '@/lib/types'
+import { questions } from '@/lib/diagnose'
+import type { DiagnoseAnswers } from '@/lib/types'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Progress } from '@/components/ui/progress'
+import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
+import {
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+  Monitor,
+  GraduationCap,
+  Code,
+  Film,
+  Gamepad2,
+  Battery,
+  Briefcase,
+  Home,
+  Wallet,
+  Ruler,
+  Package,
+  CheckCircle2,
+  Check
+} from 'lucide-react'
 
 interface QuestionFormProps {
   onComplete: (answers: DiagnoseAnswers) => void
 }
 
+// アイコンマッピング
+const questionIcons: Record<string, React.ReactNode> = {
+  report: <GraduationCap className="w-5 h-5" />,
+  programming: <Code className="w-5 h-5" />,
+  video3d: <Film className="w-5 h-5" />,
+  gaming: <Gamepad2 className="w-5 h-5" />,
+  short: <Battery className="w-5 h-5" />,
+  medium: <Battery className="w-5 h-5" />,
+  long: <Battery className="w-5 h-5" />,
+  allday: <Battery className="w-5 h-5" />,
+  daily: <Briefcase className="w-5 h-5" />,
+  weekly: <Briefcase className="w-5 h-5" />,
+  home: <Home className="w-5 h-5" />,
+  budget1: <Wallet className="w-5 h-5" />,
+  budget2: <Wallet className="w-5 h-5" />,
+  budget3: <Wallet className="w-5 h-5" />,
+  compact: <Ruler className="w-5 h-5" />,
+  standard: <Ruler className="w-5 h-5" />,
+  any: <Monitor className="w-5 h-5" />,
+  used: <Package className="w-5 h-5" />,
+  new: <Sparkles className="w-5 h-5" />,
+}
+
 export default function QuestionForm({ onComplete }: QuestionFormProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [answers, setAnswers] = useState<DiagnoseAnswers>({})
+  const [animating, setAnimating] = useState(false)
 
   const currentQuestion = questions[currentIndex]
   const totalQuestions = questions.length
   const progress = ((currentIndex + 1) / totalQuestions) * 100
+  const isMultiSelect = currentQuestion?.multiSelect ?? false
 
-  const handleSelect = useCallback((optionId: string) => {
-    setAnswers(prev => ({
-      ...prev,
-      [currentQuestion.id]: optionId,
-    }))
-
-    // 次の質問へ
-    if (currentIndex < totalQuestions - 1) {
-      setCurrentIndex(prev => prev + 1)
-    } else {
-      // 最後の質問完了
-      onComplete({
-        ...answers,
-        [currentQuestion.id]: optionId,
-      })
+  // 回答数をカウント（Q1は配列なので長さをカウント）
+  const answeredCount = Object.entries(answers).reduce((count, [key, value]) => {
+    if (key === 'Q1' && Array.isArray(value)) {
+      return count + (value.length > 0 ? 1 : 0)
     }
-  }, [currentQuestion, currentIndex, totalQuestions, answers, onComplete])
+    return count + (value ? 1 : 0)
+  }, 0)
+
+  // 複数選択のトグル
+  const toggleMultiSelect = useCallback((optionId: string) => {
+    setAnswers(prev => {
+      const current = prev.Q1 ?? []
+      const isSelected = current.includes(optionId)
+
+      return {
+        ...prev,
+        Q1: isSelected
+          ? current.filter(id => id !== optionId)
+          : [...current, optionId]
+      }
+    })
+  }, [])
+
+  // 単一選択
+  const handleSingleSelect = useCallback((optionId: string) => {
+    if (animating) return
+
+    setAnimating(true)
+    const newAnswers = {
+      ...answers,
+      [currentQuestion.id]: optionId,
+    }
+    setAnswers(newAnswers)
+
+    setTimeout(() => {
+      if (currentIndex < totalQuestions - 1) {
+        setCurrentIndex(prev => prev + 1)
+      } else {
+        onComplete(newAnswers)
+      }
+      setAnimating(false)
+    }, 200)
+  }, [currentQuestion, currentIndex, totalQuestions, answers, onComplete, animating])
+
+  // 選択ハンドラ（複数選択か単一選択かで分岐）
+  const handleSelect = useCallback((optionId: string) => {
+    if (isMultiSelect) {
+      toggleMultiSelect(optionId)
+    } else {
+      handleSingleSelect(optionId)
+    }
+  }, [isMultiSelect, toggleMultiSelect, handleSingleSelect])
+
+  // 次へ進む（複数選択用）
+  const handleNext = useCallback(() => {
+    if (animating) return
+    setAnimating(true)
+
+    setTimeout(() => {
+      if (currentIndex < totalQuestions - 1) {
+        setCurrentIndex(prev => prev + 1)
+      } else {
+        onComplete(answers)
+      }
+      setAnimating(false)
+    }, 200)
+  }, [currentIndex, totalQuestions, answers, onComplete, animating])
 
   const handleSkip = useCallback(() => {
-    if (currentIndex < totalQuestions - 1) {
-      setCurrentIndex(prev => prev + 1)
-    } else {
-      onComplete(answers)
-    }
-  }, [currentIndex, totalQuestions, answers, onComplete])
+    if (animating) return
+    setAnimating(true)
+
+    setTimeout(() => {
+      if (currentIndex < totalQuestions - 1) {
+        setCurrentIndex(prev => prev + 1)
+      } else {
+        onComplete(answers)
+      }
+      setAnimating(false)
+    }, 200)
+  }, [currentIndex, totalQuestions, answers, onComplete, animating])
 
   const handleBack = useCallback(() => {
-    if (currentIndex > 0) {
-      setCurrentIndex(prev => prev - 1)
+    if (currentIndex > 0 && !animating) {
+      setAnimating(true)
+      setTimeout(() => {
+        setCurrentIndex(prev => prev - 1)
+        setAnimating(false)
+      }, 150)
     }
-  }, [currentIndex])
+  }, [currentIndex, animating])
 
-  const isAnswered = answers[currentQuestion?.id] !== undefined
+  // 選択状態を判定
+  const isSelected = (optionId: string): boolean => {
+    if (isMultiSelect) {
+      return (answers.Q1 ?? []).includes(optionId)
+    }
+    return answers[currentQuestion.id] === optionId
+  }
+
+  // 複数選択で何か選択されているか
+  const hasSelection = isMultiSelect ? (answers.Q1?.length ?? 0) > 0 : !!answers[currentQuestion.id]
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white px-4 py-8">
-      <div className="mx-auto max-w-lg">
-        {/* ヘッダー */}
-        <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold text-gray-800">
-            PC診断
-          </h1>
-          <p className="mt-2 text-gray-600">
-            あなたにぴったりのPCを見つけましょう
-          </p>
-        </div>
-
-        {/* 進捗バー */}
-        <div className="mb-8">
-          <div className="flex justify-between text-sm text-gray-600 mb-2">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      {/* ヘッダー */}
+      <div className="sticky top-0 z-50 glass border-b">
+        <div className="max-w-2xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Monitor className="w-6 h-6 text-primary" />
+              <span className="font-bold text-lg">PC診断</span>
+            </div>
+            <Badge variant="secondary" className="font-medium">
+              {answeredCount} / {totalQuestions} 回答
+            </Badge>
+          </div>
+          <Progress value={progress} className="h-2" />
+          <div className="flex justify-between mt-2 text-xs text-muted-foreground">
             <span>質問 {currentIndex + 1} / {totalQuestions}</span>
-            <span>{Math.round(progress)}%</span>
-          </div>
-          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-primary-500 transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            />
+            <span>{Math.round(progress)}% 完了</span>
           </div>
         </div>
+      </div>
 
-        {/* 質問カード */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
-          <h2 className="text-xl font-bold text-gray-800 mb-2">
-            {currentQuestion?.title}
-          </h2>
-          <p className="text-gray-600 mb-6">
-            {currentQuestion?.description}
-          </p>
+      {/* メインコンテンツ */}
+      <div className="max-w-2xl mx-auto px-4 py-8">
+        <Card className={cn(
+          "border-0 shadow-xl bg-white/80 backdrop-blur transition-all duration-300",
+          animating && "opacity-50 scale-[0.98]"
+        )}>
+          <CardHeader className="text-center pb-2">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center shadow-lg shadow-primary/30">
+              <Sparkles className="w-8 h-8 text-white" />
+            </div>
+            <CardTitle className="text-2xl font-bold">
+              {currentQuestion?.title}
+            </CardTitle>
+            <CardDescription className="text-base">
+              {currentQuestion?.description}
+            </CardDescription>
+            {isMultiSelect && (
+              <Badge variant="outline" className="mt-2 mx-auto">
+                <Check className="w-3 h-3 mr-1" />
+                複数選択可
+              </Badge>
+            )}
+          </CardHeader>
 
-          {/* 選択肢 */}
-          <div className="space-y-3">
-            {currentQuestion?.options.map(option => {
-              const isSelected = answers[currentQuestion.id] === option.id
+          <CardContent className="space-y-3">
+            {currentQuestion?.options.map((option, index) => {
+              const selected = isSelected(option.id)
+              const icon = questionIcons[option.id] || <Monitor className="w-5 h-5" />
+
               return (
                 <button
                   key={option.id}
                   onClick={() => handleSelect(option.id)}
-                  className={`
-                    w-full text-left px-5 py-4 rounded-xl border-2 transition-all
-                    ${isSelected
-                      ? 'border-primary-500 bg-primary-50 text-primary-700'
-                      : 'border-gray-200 hover:border-primary-300 hover:bg-gray-50'
-                    }
-                  `}
+                  className={cn(
+                    "w-full text-left p-4 rounded-xl border-2 transition-all duration-200 group",
+                    "hover:shadow-lg hover:scale-[1.02]",
+                    selected
+                      ? "border-primary bg-primary/5 shadow-md shadow-primary/10"
+                      : "border-gray-200 hover:border-primary/50 hover:bg-gray-50"
+                  )}
+                  style={{ animationDelay: `${index * 50}ms` }}
                 >
-                  <span className="font-medium">{option.label}</span>
+                  <div className="flex items-center gap-4">
+                    <div className={cn(
+                      "w-12 h-12 rounded-xl flex items-center justify-center transition-colors",
+                      selected
+                        ? "bg-primary text-white"
+                        : "bg-gray-100 text-gray-600 group-hover:bg-primary/10 group-hover:text-primary"
+                    )}>
+                      {icon}
+                    </div>
+                    <div className="flex-1">
+                      <span className={cn(
+                        "font-medium text-base",
+                        selected && "text-primary"
+                      )}>
+                        {option.label}
+                      </span>
+                    </div>
+                    {selected && (
+                      <CheckCircle2 className="w-6 h-6 text-primary animate-scale-in" />
+                    )}
+                  </div>
                 </button>
               )
             })}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* ナビゲーション */}
-        <div className="flex justify-between items-center">
-          <button
+        <div className="flex justify-between items-center mt-6">
+          <Button
+            variant="ghost"
             onClick={handleBack}
-            disabled={currentIndex === 0}
-            className={`
-              px-4 py-2 rounded-lg text-gray-600
-              ${currentIndex === 0
-                ? 'opacity-50 cursor-not-allowed'
-                : 'hover:bg-gray-100'
-              }
-            `}
+            disabled={currentIndex === 0 || animating}
+            className="gap-2"
           >
-            ← 戻る
-          </button>
+            <ChevronLeft className="w-4 h-4" />
+            戻る
+          </Button>
 
-          {!currentQuestion?.required && (
-            <button
-              onClick={handleSkip}
-              className="px-4 py-2 rounded-lg text-gray-500 hover:bg-gray-100"
-            >
-              スキップ →
-            </button>
-          )}
+          <div className="flex gap-2">
+            {/* 複数選択の場合は「次へ」ボタンを表示 */}
+            {isMultiSelect ? (
+              <Button
+                onClick={handleNext}
+                disabled={!hasSelection || animating}
+                className="gap-2"
+              >
+                次へ
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            ) : (
+              !currentQuestion?.required && (
+                <Button
+                  variant="outline"
+                  onClick={handleSkip}
+                  disabled={animating}
+                  className="gap-2"
+                >
+                  スキップ
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              )
+            )}
+          </div>
         </div>
 
-        {/* デバッグ: 現在の回答状態（開発用） */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="mt-8 p-4 bg-gray-100 rounded text-xs text-gray-600">
-            <p className="font-bold">Debug - Current Answers:</p>
-            <pre>{JSON.stringify(answers, null, 2)}</pre>
-          </div>
-        )}
+        {/* ヒント */}
+        <div className="mt-8 p-4 rounded-xl bg-blue-50 border border-blue-100">
+          <p className="text-sm text-blue-700">
+            {isMultiSelect ? (
+              <>
+                💡 <strong>ヒント:</strong> 当てはまるものをすべて選んでから「次へ」を押してください。
+                複数選んだ場合、最も負荷のかかる用途に合わせてPCを提案します。
+              </>
+            ) : (
+              <>
+                💡 <strong>ヒント:</strong> すべての質問に答える必要はありません。
+                こだわらない項目はスキップしてOKです。
+              </>
+            )}
+          </p>
+        </div>
       </div>
     </div>
   )

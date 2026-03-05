@@ -2,21 +2,58 @@ import type { DiagnoseAnswers, SearchQuery, SpecRank, QuestionId } from '../type
 import { questions } from './questions'
 
 /**
- * Q1の回答からスペックランクを判定
- * 設計書 §4.2 の用途→キーワード対応に基づく
+ * 用途IDのスペックランク優先度
+ * 数字が小さいほど高スペック
  */
-function getSpecRankFromQ1(q1Answer: string): SpecRank {
-  switch (q1Answer) {
-    case 'report':
-      return 'C'  // エントリー
-    case 'programming':
-      return 'B'  // 中スペック
-    case 'video3d':
-    case 'gaming':
-      return 'A'  // 高スペック
-    default:
-      return 'C'  // デフォルト
+const SPEC_PRIORITY: Record<string, number> = {
+  gaming: 1,      // 最も高スペック
+  video3d: 2,
+  programming: 3,
+  report: 4,      // 最も低スペック
+}
+
+/**
+ * Q1の複数回答から最も高スペックな用途を判定
+ * 複数選択された場合、最も要求の高い用途を採用
+ */
+function getHighestSpecFromQ1(q1Answers: string[]): { specRank: SpecRank; keyword: string } {
+  // 最も高スペックな用途を見つける
+  let highestPriority = Infinity
+  let highestId = 'report'  // デフォルト
+
+  for (const answerId of q1Answers) {
+    const priority = SPEC_PRIORITY[answerId] ?? 4
+    if (priority < highestPriority) {
+      highestPriority = priority
+      highestId = answerId
+    }
   }
+
+  // スペックランクを決定
+  let specRank: SpecRank
+  let keyword: string
+
+  switch (highestId) {
+    case 'gaming':
+      specRank = 'A'
+      keyword = 'ゲーミング RTX 16GB'
+      break
+    case 'video3d':
+      specRank = 'A'
+      keyword = 'Core i7 32GB SSD 1TB'
+      break
+    case 'programming':
+      specRank = 'B'
+      keyword = 'Core i5 16GB SSD 512GB'
+      break
+    case 'report':
+    default:
+      specRank = 'C'
+      keyword = 'Core i5 8GB SSD'
+      break
+  }
+
+  return { specRank, keyword }
 }
 
 /**
@@ -94,16 +131,11 @@ export function buildSearchQuery(
   let maxPrice: number | undefined
   let specRank: SpecRank = 'C'
 
-  // Q1の回答からスペックランクを決定
-  if (answers.Q1) {
-    specRank = getSpecRankFromQ1(answers.Q1)
-  }
-
-  // スペック系キーワード（Q1）はフォールバックの影響を受けない
-  const q1Question = questions.find(q => q.id === 'Q1')
-  const q1Option = q1Question?.options.find(o => o.id === answers.Q1)
-  if (q1Option?.keyword) {
-    keywords.push(q1Option.keyword)
+  // Q1の回答からスペックランクとキーワードを決定（複数選択対応）
+  if (answers.Q1 && answers.Q1.length > 0) {
+    const result = getHighestSpecFromQ1(answers.Q1)
+    specRank = result.specRank
+    keywords.push(result.keyword)
   }
 
   // 各質問のキーワードを収集（フォールバック考慮）
@@ -154,29 +186,17 @@ export function buildUpgradeSearchQuery(answers: DiagnoseAnswers): SearchQuery {
   // Q1のキーワードをアップグレード版に置換
   const keywordParts = baseQuery.keyword.split(' ')
   const baseKeyword = getKeywordForSpecRank(baseQuery.specRank)
-  const keywordIndex = keywordParts.findIndex(part => baseKeyword.includes(part))
 
-  if (keywordIndex !== -1) {
-    // 元のスペックキーワードを削除してアップグレード版を追加
-    const baseParts = baseKeyword.split(' ')
-    const upgradeParts = upgradeKeyword.split(' ')
-
-    // 元のスペック系単語を削除
-    const filteredParts = keywordParts.filter(
-      part => !baseParts.some(bp => part.includes(bp))
-    )
-
-    return {
-      keyword: [...filteredParts.slice(0, 1), upgradeKeyword, ...filteredParts.slice(1)].join(' '),
-      minPrice: baseQuery.minPrice,
-      maxPrice: undefined,  // アップグレード版は上限を緩和
-      specRank: upgradeRank,
-    }
-  }
+  // 元のスペック系単語を削除してアップグレード版を追加
+  const baseParts = baseKeyword.split(' ')
+  const filteredParts = keywordParts.filter(
+    part => !baseParts.some(bp => part.includes(bp))
+  )
 
   return {
-    ...baseQuery,
-    keyword: `${baseQuery.keyword} ${upgradeKeyword}`,
+    keyword: [...filteredParts.slice(0, 1), upgradeKeyword, ...filteredParts.slice(1)].join(' '),
+    minPrice: baseQuery.minPrice,
+    maxPrice: undefined,  // アップグレード版は上限を緩和
     specRank: upgradeRank,
   }
 }

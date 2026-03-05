@@ -1,9 +1,18 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Cloudflare Pagesへのデプロイを考慮した設定
-  output: 'export',
+  // API Routesを使用するため静的エクスポートを解除
+  // Cloudflare PagesへはFunctionsを使用してデプロイ可能
   images: {
-    unoptimized: true, // 静的エクスポート時は画像最適化を無効化
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'thumbnail.image.rakuten.co.jp',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.rakuten.co.jp',
+      },
+    ],
   },
   // 環境変数の公開設定
   env: {
