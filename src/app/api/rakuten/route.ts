@@ -88,6 +88,12 @@ export async function GET(request: NextRequest) {
 
     const data = await response.json()
     console.log('[API Route] 成功: 商品数:', data.count || 0)
+
+    // デバッグ: 最初の商品の構造をログ出力
+    if (data.Items && data.Items.length > 0) {
+      console.log('[API Route] サンプル商品:', JSON.stringify(data.Items[0], null, 2))
+    }
+
     return NextResponse.json(data)
   } catch (error) {
     console.error('[API Route] Fetch error:', error)

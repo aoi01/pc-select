@@ -8,14 +8,14 @@ export const questions: Question[] = [
   {
     id: 'Q1',
     title: '主な使用用途は？',
-    description: '複数選択可能です。当てはまるものをすべて選んでください。',
+    description: 'どのような目的でパソコンを使いますか？',
     required: true,
-    multiSelect: true,
     options: [
       {
         id: 'report',
-        label: 'レポート・調べ物',
+        label: '大学のレポート・調べ物',
         keyword: 'Core i5 8GB SSD',
+        // specRank: C（エントリー）は keywordMapper で判定
       },
       {
         id: 'programming',
