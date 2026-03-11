@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import { Providers } from '@/components/Providers'
 
 export const metadata: Metadata = {
   title: 'PC診断・レコメンド | あなたにぴったりのPCを見つけよう',
@@ -23,7 +24,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
-  themeColor: '#3b82f6',
+  themeColor: '#00d4ff',
 }
 
 export default function RootLayout({
@@ -33,8 +34,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ja" className="smooth-scroll">
-      <body className="antialiased">
-        {children}
+      <body className="antialiased scrollbar-thin">
+        <Providers>{children}</Providers>
       </body>
     </html>
   )

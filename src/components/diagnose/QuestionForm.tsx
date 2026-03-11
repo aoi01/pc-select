@@ -5,25 +5,26 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { questions } from '@/lib/diagnose'
 import type { DiagnoseAnswers } from '@/lib/types'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
+import { BlurText } from '@/components/reactbits'
+import { useTheme } from '@/components/ThemeProvider'
 import { cn } from '@/lib/utils'
 import {
   HiOutlineAcademicCap,
   HiOutlineCode,
   HiOutlineFilm,
   HiOutlineDesktopComputer,
-  HiOutlineLightningBolt,
   HiOutlineBriefcase,
   HiOutlineHome,
   HiOutlineCurrencyDollar,
-  HiOutlineRulerHorizontal,
+  HiOutlineSwitchHorizontal,
   HiOutlineCube,
   HiOutlineSparkles,
   HiOutlineCheckCircle,
   HiOutlineArrowLeft,
   HiOutlineArrowRight,
+  HiOutlineSun,
+  HiOutlineMoon,
 } from 'react-icons/hi'
 import {
   RiGamepadLine,
@@ -35,7 +36,6 @@ interface QuestionFormProps {
   onComplete: (answers: DiagnoseAnswers) => void
 }
 
-// アイコンマッピング - React Icons
 const questionIcons: Record<string, React.ReactNode> = {
   report: <HiOutlineAcademicCap className="w-5 h-5" />,
   programming: <HiOutlineCode className="w-5 h-5" />,
@@ -51,80 +51,56 @@ const questionIcons: Record<string, React.ReactNode> = {
   budget1: <HiOutlineCurrencyDollar className="w-5 h-5" />,
   budget2: <HiOutlineCurrencyDollar className="w-5 h-5" />,
   budget3: <HiOutlineCurrencyDollar className="w-5 h-5" />,
-  compact: <HiOutlineRulerHorizontal className="w-5 h-5" />,
-  standard: <HiOutlineRulerHorizontal className="w-5 h-5" />,
+  compact: <HiOutlineSwitchHorizontal className="w-5 h-5" />,
+  standard: <HiOutlineSwitchHorizontal className="w-5 h-5" />,
   any: <HiOutlineDesktopComputer className="w-5 h-5" />,
   used: <HiOutlineCube className="w-5 h-5" />,
   new: <HiOutlineSparkles className="w-5 h-5" />,
 }
 
-// Framer Motion variants
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: {
-      staggerChildren: 0.08,
-    },
+    transition: { staggerChildren: 0.04 },
   },
-  exit: {
-    opacity: 0,
-    transition: { duration: 0.2 },
-  },
+  exit: { opacity: 0, transition: { duration: 0.15 } },
 }
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 20, scale: 0.95 },
+  hidden: { opacity: 0, y: 8 },
   visible: {
     opacity: 1,
     y: 0,
-    scale: 1,
-    transition: {
-      type: 'spring',
-      stiffness: 300,
-      damping: 24,
-    },
+    transition: { duration: 0.2, ease: 'easeOut' as const },
   },
 }
 
 const cardVariants = {
-  hidden: { opacity: 0, scale: 0.95 },
+  hidden: { opacity: 0, y: 10 },
   visible: {
     opacity: 1,
-    scale: 1,
-    transition: {
-      type: 'spring',
-      stiffness: 300,
-      damping: 25,
-    },
+    y: 0,
+    transition: { duration: 0.25, ease: 'easeOut' as const },
   },
   exit: {
     opacity: 0,
-    scale: 0.95,
-    x: -50,
-    transition: { duration: 0.2 },
+    x: -20,
+    transition: { duration: 0.15 },
   },
-}
-
-const progressVariants = {
-  initial: { width: 0 },
-  animate: (progress: number) => ({
-    width: `${progress}%`,
-    transition: { duration: 0.5, ease: 'easeOut' },
-  }),
 }
 
 export default function QuestionForm({ onComplete }: QuestionFormProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [answers, setAnswers] = useState<DiagnoseAnswers>({})
   const [direction, setDirection] = useState(0)
+  const { theme, toggleTheme } = useTheme()
 
   const currentQuestion = questions[currentIndex]
   const totalQuestions = questions.length
   const progress = ((currentIndex + 1) / totalQuestions) * 100
   const isMultiSelect = currentQuestion?.multiSelect ?? false
 
-  // 回答数をカウント
   const answeredCount = Object.entries(answers).reduce((count, [key, value]) => {
     if (key === 'Q1' && Array.isArray(value)) {
       return count + (value.length > 0 ? 1 : 0)
@@ -132,22 +108,19 @@ export default function QuestionForm({ onComplete }: QuestionFormProps) {
     return count + (value ? 1 : 0)
   }, 0)
 
-  // 複数選択のトグル
   const toggleMultiSelect = useCallback((optionId: string) => {
     setAnswers(prev => {
       const current = prev.Q1 ?? []
       const isSelected = current.includes(optionId)
-
       return {
         ...prev,
         Q1: isSelected
           ? current.filter(id => id !== optionId)
-          : [...current, optionId]
+          : [...current, optionId],
       }
     })
   }, [])
 
-  // 単一選択
   const handleSingleSelect = useCallback((optionId: string) => {
     const newAnswers = {
       ...answers,
@@ -165,7 +138,6 @@ export default function QuestionForm({ onComplete }: QuestionFormProps) {
     }, 300)
   }, [currentQuestion, currentIndex, totalQuestions, answers, onComplete])
 
-  // 選択ハンドラ
   const handleSelect = useCallback((optionId: string) => {
     if (isMultiSelect) {
       toggleMultiSelect(optionId)
@@ -174,7 +146,6 @@ export default function QuestionForm({ onComplete }: QuestionFormProps) {
     }
   }, [isMultiSelect, toggleMultiSelect, handleSingleSelect])
 
-  // 次へ進む
   const handleNext = useCallback(() => {
     setDirection(1)
     setTimeout(() => {
@@ -206,7 +177,6 @@ export default function QuestionForm({ onComplete }: QuestionFormProps) {
     }
   }, [currentIndex])
 
-  // 選択状態を判定
   const isSelected = (optionId: string): boolean => {
     if (isMultiSelect) {
       return (answers.Q1 ?? []).includes(optionId)
@@ -217,88 +187,58 @@ export default function QuestionForm({ onComplete }: QuestionFormProps) {
   const hasSelection = isMultiSelect ? (answers.Q1?.length ?? 0) > 0 : !!answers[currentQuestion.id]
 
   return (
-    <div className="min-h-screen bg-gradient-mesh relative overflow-hidden">
-      {/* Decorative blobs */}
+    <div className="min-h-screen relative overflow-hidden">
+      {/* Header */}
       <motion.div
-        className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-violet-200/40 to-fuchsia-200/40 rounded-full blur-3xl"
-        animate={{
-          x: [0, 30, 0],
-          y: [0, -20, 0],
-        }}
-        transition={{
-          duration: 8,
-          repeat: Infinity,
-          ease: 'easeInOut',
-        }}
-      />
-      <motion.div
-        className="absolute bottom-0 left-0 w-80 h-80 bg-gradient-to-br from-cyan-200/40 to-blue-200/40 rounded-full blur-3xl"
-        animate={{
-          x: [0, -20, 0],
-          y: [0, 30, 0],
-        }}
-        transition={{
-          duration: 10,
-          repeat: Infinity,
-          ease: 'easeInOut',
-        }}
-      />
-
-      {/* ヘッダー */}
-      <motion.div
-        className="sticky top-0 z-50 glass border-b border-white/20"
+        className="sticky top-0 z-50 glass"
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.5 }}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
       >
         <div className="max-w-2xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
-              <motion.div
-                className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-lg"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+              <div
+                className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center"
+                style={{ boxShadow: '0 0 20px rgba(0,212,255,0.2)' }}
               >
                 <HiOutlineDesktopComputer className="w-5 h-5 text-white" />
-              </motion.div>
-              <div>
-                <span className="font-bold text-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
-                  PC診断
-                </span>
               </div>
+              <span className="font-bold text-lg gradient-text">
+                PC診断
+              </span>
             </div>
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.2, type: 'spring' }}
-            >
-              <Badge
-                variant="secondary"
-                className="font-medium bg-white/80 backdrop-blur border border-violet-100"
+            <div className="flex items-center gap-2">
+              <button
+                onClick={toggleTheme}
+                className="w-9 h-9 rounded-lg flex items-center justify-center text-foreground/50 hover:text-foreground/80 hover:bg-foreground/5 transition-colors"
+                aria-label="テーマ切替"
               >
+                {theme === 'dark' ? <HiOutlineSun className="w-5 h-5" /> : <HiOutlineMoon className="w-5 h-5" />}
+              </button>
+              <Badge className="font-medium bg-foreground/5 border border-foreground/10 text-foreground/70">
                 {answeredCount} / {totalQuestions} 回答
               </Badge>
-            </motion.div>
+            </div>
           </div>
 
-          {/* Progress bar with animation */}
-          <div className="relative h-2.5 bg-gray-100 rounded-full overflow-hidden">
+          {/* Progress bar */}
+          <div className="relative h-1.5 bg-foreground/5 rounded-full overflow-hidden">
             <motion.div
-              className="absolute inset-y-0 left-0 bg-gradient-to-r from-violet-500 to-fuchsia-500 rounded-full"
-              variants={progressVariants}
-              initial="initial"
-              animate="animate"
-              custom={progress}
+              className="absolute inset-y-0 left-0 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full"
+              initial={{ width: 0 }}
+              animate={{ width: `${progress}%` }}
+              transition={{ duration: 0.4, ease: 'easeOut' }}
             />
           </div>
-          <div className="flex justify-between mt-2 text-xs text-gray-500">
-            <span>質問 {currentIndex + 1} / {totalQuestions}</span>
-            <span>{Math.round(progress)}% 完了</span>
+          <div className="flex justify-between mt-2 text-xs text-foreground/30">
+            <span>Q{currentIndex + 1} / {totalQuestions}</span>
+            <span>{Math.round(progress)}%</span>
           </div>
         </div>
       </motion.div>
 
-      {/* メインコンテンツ */}
+      {/* Main content */}
       <div className="max-w-2xl mx-auto px-4 py-8">
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div
@@ -309,65 +249,54 @@ export default function QuestionForm({ onComplete }: QuestionFormProps) {
             animate="visible"
             exit="exit"
           >
-            <Card className="border-0 shadow-2xl glass-card overflow-hidden">
-              {/* Gradient top border */}
-              <div className="h-1 bg-gradient-to-r from-violet-500 via-fuchsia-500 to-pink-500" />
+            <div className="glass-card rounded-2xl overflow-hidden">
+              {/* Gradient top accent */}
+              <div className="h-px bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent" />
 
-              <CardHeader className="text-center pb-2">
-                <motion.div
-                  className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-violet-500 via-purple-500 to-fuchsia-500 flex items-center justify-center shadow-xl"
-                  initial={{ scale: 0, rotate: -10 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{ type: 'spring', stiffness: 200, delay: 0.1 }}
-                >
-                  <HiOutlineSparkles className="w-10 h-10 text-white" />
-                </motion.div>
+              <div className="p-6 sm:p-8 text-center">
+                {/* Question icon */}
+                <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-violet-500/20 border border-foreground/10 flex items-center justify-center">
+                  <HiOutlineSparkles className="w-8 h-8 text-cyan-400" />
+                </div>
 
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.15 }}
-                >
-                  <CardTitle className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-                    {currentQuestion?.title}
-                  </CardTitle>
-                </motion.div>
+                {/* Question title with BlurText */}
+                <BlurText
+                  key={`title-${currentIndex}`}
+                  text={currentQuestion?.title ?? ''}
+                  delay={80}
+                  animateBy="characters"
+                  direction="top"
+                  className="text-2xl font-bold text-foreground justify-center mb-2"
+                />
 
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
+                <motion.p
+                  className="text-foreground/40 text-sm"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.1, duration: 0.2 }}
                 >
-                  <CardDescription className="text-base text-gray-500">
-                    {currentQuestion?.description}
-                  </CardDescription>
-                </motion.div>
+                  {currentQuestion?.description}
+                </motion.p>
 
                 {isMultiSelect && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.25 }}
-                  >
-                    <Badge
-                      variant="outline"
-                      className="mt-2 mx-auto bg-violet-50 border-violet-200 text-violet-700"
-                    >
+                  <div className="mt-3">
+                    <Badge className="bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs">
                       <RiCheckLine className="w-3 h-3 mr-1" />
                       複数選択可
                     </Badge>
-                  </motion.div>
+                  </div>
                 )}
-              </CardHeader>
+              </div>
 
-              <CardContent className="space-y-3">
+              {/* Options */}
+              <div className="px-6 sm:px-8 pb-6 sm:pb-8">
                 <motion.div
                   variants={containerVariants}
                   initial="hidden"
                   animate="visible"
-                  className="space-y-3"
+                  className="space-y-2.5"
                 >
-                  {currentQuestion?.options.map((option, index) => {
+                  {currentQuestion?.options.map((option) => {
                     const selected = isSelected(option.id)
                     const icon = questionIcons[option.id] || <HiOutlineDesktopComputer className="w-5 h-5" />
 
@@ -377,82 +306,56 @@ export default function QuestionForm({ onComplete }: QuestionFormProps) {
                         variants={itemVariants}
                         onClick={() => handleSelect(option.id)}
                         className={cn(
-                          "w-full text-left p-4 rounded-2xl border-2 transition-all duration-200 group relative overflow-hidden",
+                          "w-full text-left p-4 rounded-xl border transition-all duration-200 group relative overflow-hidden",
                           selected
-                            ? "border-violet-400 bg-gradient-to-r from-violet-50 to-fuchsia-50 shadow-lg shadow-violet-500/10"
-                            : "border-gray-100 bg-white/50 hover:border-violet-200 hover:bg-white/80 hover:shadow-md"
+                            ? "border-cyan-500/40 bg-cyan-500/10"
+                            : "border-foreground/6 bg-foreground/[0.02] hover:border-foreground/12 hover:bg-foreground/[0.04]"
                         )}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
+                        whileTap={{ scale: 0.99 }}
                       >
-                        {/* Selection indicator animation */}
-                        {selected && (
-                          <motion.div
-                            className="absolute inset-0 bg-gradient-to-r from-violet-500/5 to-fuchsia-500/5"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ duration: 0.3 }}
-                          />
-                        )}
-
                         <div className="flex items-center gap-4 relative z-10">
-                          <motion.div
+                          <div
                             className={cn(
-                              "w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300",
+                              "w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200",
                               selected
-                                ? "bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-lg"
-                                : "bg-gray-100 text-gray-500 group-hover:bg-violet-100 group-hover:text-violet-600"
+                                ? "bg-gradient-to-br from-cyan-500 to-blue-600 text-white"
+                                : "bg-foreground/5 text-foreground/40 group-hover:bg-foreground/8 group-hover:text-foreground/60"
                             )}
-                            whileHover={{ rotate: selected ? 0 : 5 }}
                           >
                             {icon}
-                          </motion.div>
-
-                          <div className="flex-1">
-                            <span className={cn(
-                              "font-medium text-base transition-colors",
-                              selected ? "text-violet-700" : "text-gray-700"
-                            )}>
-                              {option.label}
-                            </span>
                           </div>
 
-                          <AnimatePresence>
+                          <span className={cn(
+                            "font-medium text-[15px] transition-colors",
+                            selected ? "text-cyan-300" : "text-foreground/70 group-hover:text-foreground/90"
+                          )}>
+                            {option.label}
+                          </span>
+
+                          <div className="ml-auto">
                             {selected && (
-                              <motion.div
-                                initial={{ scale: 0, rotate: -180 }}
-                                animate={{ scale: 1, rotate: 0 }}
-                                exit={{ scale: 0, rotate: 180 }}
-                                transition={{ type: 'spring', stiffness: 500, damping: 25 }}
-                              >
-                                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center shadow-md">
-                                  <HiOutlineCheckCircle className="w-5 h-5 text-white" />
-                                </div>
-                              </motion.div>
+                              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center">
+                                <HiOutlineCheckCircle className="w-4 h-4 text-white" />
+                              </div>
                             )}
-                          </AnimatePresence>
+                          </div>
                         </div>
                       </motion.button>
                     )
                   })}
                 </motion.div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </motion.div>
         </AnimatePresence>
 
-        {/* ナビゲーション */}
-        <motion.div
-          className="flex justify-between items-center mt-6"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-        >
+        {/* Navigation */}
+        <div className="flex justify-between items-center mt-6 animate-fade-in">
           <Button
             variant="ghost"
             onClick={handleBack}
             disabled={currentIndex === 0}
-            className="gap-2 hover:bg-white/50"
+            className="gap-2 text-foreground/40 hover:text-foreground/70 hover:bg-foreground/5 disabled:opacity-20"
           >
             <HiOutlineArrowLeft className="w-4 h-4" />
             戻る
@@ -463,7 +366,7 @@ export default function QuestionForm({ onComplete }: QuestionFormProps) {
               <Button
                 onClick={handleNext}
                 disabled={!hasSelection}
-                className="gap-2 bg-gradient-to-r from-violet-500 to-fuchsia-500 hover:from-violet-600 hover:to-fuchsia-600 shadow-lg shadow-violet-500/25"
+                className="gap-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white border-0 shadow-lg shadow-cyan-500/20 disabled:opacity-30"
               >
                 次へ
                 <HiOutlineArrowRight className="w-4 h-4" />
@@ -473,7 +376,7 @@ export default function QuestionForm({ onComplete }: QuestionFormProps) {
                 <Button
                   variant="outline"
                   onClick={handleSkip}
-                  className="gap-2 border-gray-200 hover:bg-white/50"
+                  className="gap-2 border-foreground/10 text-foreground/50 hover:text-foreground/70 hover:bg-foreground/5"
                 >
                   スキップ
                   <HiOutlineArrowRight className="w-4 h-4" />
@@ -481,29 +384,26 @@ export default function QuestionForm({ onComplete }: QuestionFormProps) {
               )
             )}
           </div>
-        </motion.div>
+        </div>
 
-        {/* ヒント */}
-        <motion.div
-          className="mt-8 p-5 rounded-2xl bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-100/50 shadow-sm"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-        >
-          <p className="text-sm text-blue-700">
+        {/* Hint */}
+        <div className="mt-8 p-4 rounded-xl bg-foreground/[0.02] border border-foreground/6 animate-fade-in">
+          <p className="text-sm text-foreground/30 leading-relaxed">
             {isMultiSelect ? (
               <>
-                <span className="font-semibold">💡 ヒント:</span> 当てはまるものをすべて選んでから「次へ」を押してください。
+                <span className="text-cyan-400/70 font-medium">Hint:</span>{' '}
+                当てはまるものをすべて選んでから「次へ」を押してください。
                 複数選んだ場合、最も負荷のかかる用途に合わせてPCを提案します。
               </>
             ) : (
               <>
-                <span className="font-semibold">💡 ヒント:</span> すべての質問に答える必要はありません。
+                <span className="text-cyan-400/70 font-medium">Hint:</span>{' '}
+                すべての質問に答える必要はありません。
                 こだわらない項目はスキップしてOKです。
               </>
             )}
           </p>
-        </motion.div>
+        </div>
       </div>
     </div>
   )
